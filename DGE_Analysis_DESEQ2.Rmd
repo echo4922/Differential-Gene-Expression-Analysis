@@ -1,0 +1,86 @@
+---
+title: "R Notebook DGE Analysis"
+author: Eddie Cho
+output: html_notebook
+---
+
+#Step 0: load libraries
+```{r setup, message=TRUE}
+library("DESeq2")
+library("BiocParallel")
+
+print("Done. All packages loaded")
+```
+#Step 1: remove loaded objects then verify current working directory
+```{r}
+rm(list = ls())
+getwd()
+```
+#Step 2: load FeatureCounts file & Metadata file
+```{r}
+counts_file<- read.delim("data_set.csv", header = TRUE, row.names = 1, sep =",")
+
+metadata_file <- read.csv("AB_WT42_AB8_Meta.csv")
+```
+
+#Step 3-A: verify dimension of featurecounts file & meta data
+```{r}
+dim(counts_file)
+dim(metadata_file)
+```
+#Step 3-B: display first 6 rows of counts and meta data file
+```{r}
+head(counts_file)
+head(metadata_file)
+```
+#Step 4: verify if column name of featurecounts file is same as column name of meta data
+```{r}
+all(rownames(metadata_file)== colnames(counts_file)) 
+```
+#Step 5: modify row names of meta data
+```{r}
+rownames(metadata_file) <- metadata_file[,1]
+
+all(rownames(metadata_file)== colnames(counts_file)) 
+```
+
+#Step 6: create dds object
+```{r}
+dds_file <- DESeqDataSetFromMatrix(countData=counts_file, 
+                              colData=metadata_file,
+                              design= ~condition)
+```
+#Step 7: perform DESEq2 specific analysis
+#estimate gene-wise
+```{r}
+dds_file_10 <- DESeq(dds_file)
+head(dds_file)
+```
+#Step 8: call results alpha level @ 0.05
+```{r}
+res0.05 <- results(dds_file_10 , alpha = 0.05)
+
+summary(res0.05)
+
+```
+#Step 9: Add organism specific information gene name, etc (Here, Drosophila melanogaster)
+```{r}
+res0.05$symbol <- mapIds(org.Dm.eg.db,
+                     keys=row.names(res0.05), # Our genenames
+                     keytype="ENSEMBL",        # The format of our genenames
+                     column="SYMBOL",          # The new format we want to add
+                     multiVals="first")
+```
+#Step 10: reorder by adjusted p values
+```{r}
+ord <- order( res0.05$padj )
+View(res[ord,])
+head(res0.05[ord,])
+dim(res0.05[ord,])
+```
+#Step 11: Export to csv
+```{r}
+write.csv(res0.05, "DESEQ2_AB_WT42_AB8_DE2_0.05_08_31_23.csv")
+
+print("ALL DESEQ2 PROCESS DONE")
+```
